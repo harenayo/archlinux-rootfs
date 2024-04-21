@@ -1,0 +1,43 @@
+#!/usr/bin/env nu
+
+use std log
+
+if not (is-admin) {
+  error make -u { msg: 'you have to be root' }
+}
+
+let temp = mktemp -d
+
+let url = {
+  scheme: 'https',
+  host: 'archive.archlinux.org',
+  path: 'iso',
+} | url join
+
+let version = http get $url | parse -r '<a href="(?<v>[^/]+)/">' | $in.v | last
+{ version: $version } | to text | log info $in
+let arch = 'x86_64'
+{ arch: $arch } | to text | log info $in
+let url = [$url, $version] | path join
+let bootstrap_file = $'archlinux-bootstrap-($version)-($arch).tar.gz'
+[$url, $bootstrap_file] | path join | { url: $in } | to text | log info $in
+let bootstrap_contents = [$url, $bootstrap_file] | path join | http get $in
+
+if ([$url, 'sha256sums.txt'] | path join | http get $in | parse -r $"\(?<c>.{64})  ($bootstrap_file)" | $in.c.0) != ($bootstrap_contents | hash sha256) {
+  error make -u { msg: 'cannot download a tarball' }
+}
+
+$bootstrap_contents | tar -x -z -f - -C $temp
+let mirrorlist = [$temp, 'root.x86_64', 'etc', 'pacman.d', 'mirrorlist'] | path join
+
+open $mirrorlist | lines | each { match ($in | str contains 'geo.mirror.pkgbuild.com') {
+  true => {
+    let line = $in | str trim -l -c '#'
+    $line | parse 'Server = {s}' | { server: $in.s } | to text | log info $in
+    $line
+  },
+  false => $in,
+} } | to text | save -f $mirrorlist
+
+[$temp, 'root.x86_64'] | path join | tar -c -a -f $'archlinux-rootfs-($version)-($arch).tar.gz' -C $in --transform 's\^./\\' .
+rm -r $temp
