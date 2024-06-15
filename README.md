@@ -1,6 +1,6 @@
 # Arch Linux Rootfs
 
-Rootfs tarballs of [Arch Linux](https://archlinux.org) based on the [bootstrap tarballs](https://archive.archlinux.org/iso) with `mv root.x86_64/* .`.
+Rootfs tarballs of [Arch Linux](https://archlinux.org) based on the [bootstrap tarballs](https://archive.archlinux.org/iso) with `mv /root.x86_64/* /`.
 
 You may need to run the following commands on a container created by importing the tarball.
 
